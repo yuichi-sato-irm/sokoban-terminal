@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-dirclean v1.3.2 — Directory Cleanup Tool
+dirclean v2.0.0 — Directory Cleanup Tool
 Organize misplaced files into their correct locations.
 (Actually: Sokoban)
 """
@@ -14,6 +14,13 @@ import time
 import json
 from pathlib import Path
 
+# ── Paths ──────────────────────────────────────────────────────
+
+BASE_DIR = Path(__file__).parent
+LEVELS_FILE = BASE_DIR / "levels.json"
+SCORE_FILE = BASE_DIR / ".dirclean_scores.json"
+SAVE_FILE = BASE_DIR / ".dirclean_save.json"
+
 # ── Colors ─────────────────────────────────────────────────────
 
 RESET = "\033[0m"
@@ -26,248 +33,18 @@ DIM = "\033[2m"
 BOLD = "\033[1m"
 WHITE = "\033[37m"
 
-# ── Level data ─────────────────────────────────────────────────
-# # = wall, @ = player, $ = box, . = target
-# + = player on target, * = box on target
+# ── Level loading ─────────────────────────────────────────────
 
-LEVELS = [
-    # ── Easy (1-5) ──
-    {
-        "path": "~/projects/api/src",
-        "map": [
-            "#####",
-            "#   #",
-            "#@$.#",
-            "#   #",
-            "#####",
-        ],
-    },
-    {
-        "path": "~/projects/api/config",
-        "map": [
-            "######",
-            "#    #",
-            "# @$.#",
-            "#  $.#",
-            "#    #",
-            "######",
-        ],
-    },
-    {
-        "path": "~/services/auth/lib",
-        "map": [
-            "#####",
-            "#  .#",
-            "#   #",
-            "# $ #",
-            "# @ #",
-            "#####",
-        ],
-    },
-    {
-        "path": "~/services/auth/test",
-        "map": [
-            "######",
-            "#  . #",
-            "# $  #",
-            "# .$ #",
-            "#  @ #",
-            "######",
-        ],
-    },
-    {
-        "path": "~/services/auth/migrations",
-        "map": [
-            "######",
-            "# .  #",
-            "#  $ #",
-            "#  $ #",
-            "#  . #",
-            "#  @ #",
-            "######",
-        ],
-    },
-    # ── Medium (6-10) ──
-    {
-        "path": "~/data/pipeline/jobs",
-        "map": [
-            "######",
-            "#.   #",
-            "#  $ #",
-            "#  $ #",
-            "#   .#",
-            "#  @ #",
-            "######",
-        ],
-    },
-    {
-        "path": "~/data/pipeline/output",
-        "map": [
-            "######",
-            "#   .#",
-            "# $  #",
-            "##$  #",
-            " #. @#",
-            " #####",
-        ],
-    },
-    {
-        "path": "~/data/pipeline/staging",
-        "map": [
-            " ####",
-            " #  #",
-            "## .#",
-            "# $ #",
-            "# $ #",
-            "# .@#",
-            "#####",
-        ],
-    },
-    {
-        "path": "~/data/etl/scripts",
-        "map": [
-            "#####",
-            "#.  ##",
-            "# $  #",
-            "## $ #",
-            " #.@ #",
-            " #####",
-        ],
-    },
-    {
-        "path": "~/data/etl/logs",
-        "map": [
-            "  ####",
-            "###  #",
-            "#. $ #",
-            "# .$ #",
-            "#  @ #",
-            "######",
-        ],
-    },
-    # ── Hard (11-15) ──
-    {
-        "path": "~/infra/terraform/modules",
-        "map": [
-            " #####",
-            " # . #",
-            "## $ #",
-            "#  $ #",
-            "# .# #",
-            "#  @ #",
-            "######",
-        ],
-    },
-    {
-        "path": "~/infra/terraform/envs",
-        "map": [
-            "#######",
-            "#  .  #",
-            "# $#$ #",
-            "#  .  #",
-            "#  @  #",
-            "#######",
-        ],
-    },
-    {
-        "path": "~/infra/deploy/staging",
-        "map": [
-            "  #####",
-            "###   #",
-            "# . # #",
-            "# $$  #",
-            "##.  ##",
-            " #   #",
-            " # @ #",
-            " #####",
-        ],
-    },
-    {
-        "path": "~/infra/deploy/production",
-        "map": [
-            "######",
-            "#    #",
-            "# .$.#",
-            "# $  #",
-            "# $. #",
-            "#  @ #",
-            "######",
-        ],
-    },
-    {
-        "path": "~/infra/k8s/manifests",
-        "map": [
-            "######",
-            "#  . #",
-            "# $$ #",
-            "#  . #",
-            "# @  #",
-            "######",
-        ],
-    },
-    # ── Expert (16-20) ──
-    {
-        "path": "~/frontend/app/components",
-        "map": [
-            " ######",
-            "##    #",
-            "#  $# #",
-            "# .$.@#",
-            "# $ # #",
-            "# .   #",
-            "#######",
-        ],
-    },
-    {
-        "path": "~/frontend/app/hooks",
-        "map": [
-            "#######",
-            "#     #",
-            "# .$. #",
-            "# $.$ #",
-            "# .$  #",
-            "#  @  #",
-            "#######",
-        ],
-    },
-    {
-        "path": "~/frontend/app/store",
-        "map": [
-            "#####",
-            "# . #",
-            "# $ ##",
-            "# .$ #",
-            "## $ #",
-            " # . #",
-            " # @ #",
-            " #####",
-        ],
-    },
-    {
-        "path": "~/frontend/app/utils",
-        "map": [
-            "  #####",
-            "### . #",
-            "# $ $ #",
-            "# . . #",
-            "# $ ###",
-            "# @  #",
-            "######",
-        ],
-    },
-    {
-        "path": "~/frontend/app/dist",
-        "map": [
-            "########",
-            "#      #",
-            "# .$.$ #",
-            "# .$ ##",
-            "# .$ #",
-            "#  @ #",
-            "######",
-        ],
-    },
-]
+def load_levels():
+    if not LEVELS_FILE.exists():
+        print(f"{RED}Error: {LEVELS_FILE} not found.{RESET}")
+        print(f"{DIM}Run 'python3 generate_levels.py' to generate levels.{RESET}")
+        sys.exit(1)
+    data = json.loads(LEVELS_FILE.read_text())
+    return data["levels"]
+
+
+LEVELS = load_levels()
 
 # ── Tile rendering ─────────────────────────────────────────────
 
@@ -294,11 +71,8 @@ def render_tile(ch):
 
 # ── Scoring ────────────────────────────────────────────────────
 
-SCORE_FILE = Path(__file__).parent / ".dirclean_scores.json"
-
 
 def calc_score(moves, pushes, elapsed, num_targets):
-    """Lower is better. Base = moves + pushes*2, time penalty after 60s per target."""
     base = moves + pushes * 2
     time_limit = num_targets * 60
     time_penalty = max(0, int((elapsed - time_limit) / 10))
@@ -306,7 +80,6 @@ def calc_score(moves, pushes, elapsed, num_targets):
 
 
 def calc_rank(score, num_targets):
-    """Return letter rank based on score relative to target count."""
     ratio = score / max(num_targets, 1)
     if ratio <= 5:
         return "S"
@@ -318,6 +91,16 @@ def calc_rank(score, num_targets):
         return "C"
     else:
         return "D"
+
+
+RANK_COLORS = {
+    "S": f"{YELLOW}{BOLD}",
+    "A": f"{GREEN}{BOLD}",
+    "B": f"{CYAN}",
+    "C": f"{WHITE}",
+    "D": f"{DIM}",
+    "-": f"{DIM}",
+}
 
 
 def load_scores():
@@ -334,21 +117,47 @@ def save_scores(scores):
 
 
 def get_player_name():
-    """Get player name from git config or environment."""
     try:
         import subprocess
-
         result = subprocess.run(
             ["git", "config", "user.name"],
-            capture_output=True,
-            text=True,
-            timeout=3,
+            capture_output=True, text=True, timeout=3,
         )
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
     except Exception:
         pass
     return os.environ.get("USER", "anonymous")
+
+
+# ── Save / Load ───────────────────────────────────────────────
+
+
+def save_game(game):
+    data = {
+        "current_level": game.level_num,
+        "level_results": game.level_results,
+        "skipped": list(game.skipped),
+        "player": get_player_name(),
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    SAVE_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+
+
+def load_game():
+    if not SAVE_FILE.exists():
+        return None
+    try:
+        return json.loads(SAVE_FILE.read_text())
+    except Exception:
+        return None
+
+
+def clear_save():
+    if SAVE_FILE.exists():
+        SAVE_FILE.unlink()
+    if SCORE_FILE.exists():
+        SCORE_FILE.unlink()
 
 
 # ── Game logic ─────────────────────────────────────────────────
@@ -362,9 +171,8 @@ class Sokoban:
         self.pushes = 0
         self.history = []
         self.max_level = len(LEVELS)
-        # scoring
         self.level_start_time = 0.0
-        self.level_results = []  # list of dicts per level
+        self.level_results = [None] * self.max_level
         self.skipped = set()
 
     def load_level(self, n):
@@ -426,9 +234,7 @@ class Sokoban:
     def is_complete(self):
         for row in self.grid:
             for ch in row:
-                if ch == ".":
-                    return False
-                if ch == "+":
+                if ch in (".", "+"):
                     return False
         return True
 
@@ -449,7 +255,7 @@ class Sokoban:
         _, total = self.count_targets()
         score = calc_score(self.moves, self.pushes, elapsed, total)
         rank = calc_rank(score, total)
-        result = {
+        self.level_results[self.level_num] = {
             "level": self.level_num + 1,
             "path": LEVELS[self.level_num]["path"],
             "moves": self.moves,
@@ -459,14 +265,8 @@ class Sokoban:
             "rank": rank,
             "skipped": False,
         }
-        # Replace or append
-        while len(self.level_results) <= self.level_num:
-            self.level_results.append(None)
-        self.level_results[self.level_num] = result
 
     def record_skip(self):
-        while len(self.level_results) <= self.level_num:
-            self.level_results.append(None)
         self.level_results[self.level_num] = {
             "level": self.level_num + 1,
             "path": LEVELS[self.level_num]["path"],
@@ -479,15 +279,22 @@ class Sokoban:
         }
         self.skipped.add(self.level_num)
 
+    def restore_from_save(self, save_data):
+        self.level_num = save_data["current_level"]
+        self.skipped = set(save_data.get("skipped", []))
+        raw_results = save_data.get("level_results", [])
+        for i, r in enumerate(raw_results):
+            if r is not None and i < self.max_level:
+                self.level_results[i] = r
+
+    def solved_count(self):
+        return sum(1 for r in self.level_results if r and not r["skipped"])
+
     def total_score(self):
-        return sum(
-            r["score"] for r in self.level_results if r and not r["skipped"]
-        )
+        return sum(r["score"] for r in self.level_results if r and not r["skipped"])
 
     def total_time(self):
-        return sum(
-            r["time"] for r in self.level_results if r and not r["skipped"]
-        )
+        return sum(r["time"] for r in self.level_results if r and not r["skipped"])
 
 
 # ── Display ────────────────────────────────────────────────────
@@ -498,30 +305,35 @@ def fmt_time(seconds):
     return f"{m}:{s:02d}"
 
 
+def difficulty_label(level_idx):
+    lv = LEVELS[level_idx]
+    d = lv.get("difficulty", "")
+    if d == "easy":
+        return f"{GREEN}EASY{RESET}"
+    elif d == "medium":
+        return f"{YELLOW}MEDIUM{RESET}"
+    elif d == "hard":
+        return f"{RED}HARD{RESET}"
+    elif d == "expert":
+        return f"{RED}{BOLD}EXPERT{RESET}"
+    else:
+        return f"{DIM}---{RESET}"
+
+
 def render(game):
     os.system("clear" if os.name != "nt" else "cls")
     lv = LEVELS[game.level_num]
     done, total = game.count_targets()
     elapsed = time.time() - game.level_start_time
 
-    diff_label = ""
-    if game.level_num < 5:
-        diff_label = f"{GREEN}EASY{RESET}"
-    elif game.level_num < 10:
-        diff_label = f"{YELLOW}MEDIUM{RESET}"
-    elif game.level_num < 15:
-        diff_label = f"{RED}HARD{RESET}"
-    else:
-        diff_label = f"{RED}{BOLD}EXPERT{RESET}"
-
     print(f"{BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}")
-    print(f"{BOLD}  dirclean{RESET} {DIM}v1.3.2 — directory cleanup tool{RESET}")
+    print(f"{BOLD}  dirclean{RESET} {DIM}v2.0.0 — directory cleanup tool{RESET}")
     print(f"{BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}")
     print()
     print(
         f"  {DIM}Scanning:{RESET} {CYAN}{lv['path']}{RESET}"
         f"   {DIM}[{game.level_num + 1}/{game.max_level}]{RESET}"
-        f"  {diff_label}"
+        f"  {difficulty_label(game.level_num)}"
     )
     print()
 
@@ -542,19 +354,21 @@ def render(game):
         f"  {DIM}Time:{RESET} {fmt_time(elapsed)}"
     )
     print()
-    print(f"  {DIM}← ↑ ↓ → move   u undo   r reset   n skip   q quit{RESET}")
+    solved = game.solved_count()
+    print(
+        f"  {DIM}Progress:{RESET} {solved}/{game.max_level} cleaned"
+        f"   {DIM}← ↑ ↓ → move  u undo  r reset  n skip  q quit{RESET}"
+    )
     print()
 
 
 def render_complete(game, result):
     render(game)
-    rank = result["rank"]
-    rank_colors = {"S": f"{YELLOW}{BOLD}", "A": f"{GREEN}{BOLD}", "B": f"{CYAN}", "C": f"{WHITE}", "D": f"{DIM}"}
-    rc = rank_colors.get(rank, "")
+    rc = RANK_COLORS.get(result["rank"], "")
     print(f"  {GREEN}{BOLD}✓ Directory cleaned!{RESET}")
     print(
         f"  {DIM}Score:{RESET} {BOLD}{result['score']}{RESET}"
-        f"  {DIM}Rank:{RESET} {rc}{rank}{RESET}"
+        f"  {DIM}Rank:{RESET} {rc}{result['rank']}{RESET}"
         f"  {DIM}Time:{RESET} {fmt_time(result['time'])}"
     )
     print(f"  {DIM}Press any key to continue...{RESET}")
@@ -564,69 +378,75 @@ def render_complete(game, result):
 def render_scorecard(game):
     os.system("clear" if os.name != "nt" else "cls")
     player = get_player_name()
-    solved = sum(1 for r in game.level_results if r and not r["skipped"])
+    solved = game.solved_count()
     skipped = sum(1 for r in game.level_results if r and r["skipped"])
 
     print(f"{BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}")
     print(f"{BOLD}  dirclean{RESET} {DIM}— session report{RESET}")
     print(f"{BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}")
     print()
-    print(f"  {DIM}User:{RESET} {CYAN}{player}{RESET}   {DIM}Cleaned:{RESET} {solved}/{game.max_level}   {DIM}Skipped:{RESET} {skipped}")
+    print(
+        f"  {DIM}User:{RESET} {CYAN}{player}{RESET}"
+        f"   {DIM}Cleaned:{RESET} {solved}/{game.max_level}"
+        f"   {DIM}Skipped:{RESET} {skipped}"
+    )
     print()
 
-    rank_colors = {"S": f"{YELLOW}{BOLD}", "A": f"{GREEN}{BOLD}", "B": f"{CYAN}", "C": f"{WHITE}", "D": f"{DIM}", "-": f"{DIM}"}
+    # Show recent 20 levels around current progress
+    results_with_data = [
+        i for i, r in enumerate(game.level_results) if r is not None
+    ]
+    if results_with_data:
+        start = max(0, min(results_with_data) // 10 * 10)
+        end = min(game.max_level, max(results_with_data) + 1)
+        # limit to 20 rows
+        if end - start > 20:
+            start = max(0, end - 20)
 
-    print(f"  {DIM}{'#':>3}  {'Directory':<32} {'Moves':>5} {'Push':>5} {'Time':>6} {'Score':>6} {'Rank':>4}{RESET}")
-    print(f"  {DIM}{'─'*3}  {'─'*32} {'─'*5} {'─'*5} {'─'*6} {'─'*6} {'─'*4}{RESET}")
+        print(f"  {DIM}{'#':>4}  {'Directory':<34} {'Moves':>5} {'Push':>5} {'Time':>6} {'Score':>6} {'Rank':>4}{RESET}")
+        print(f"  {DIM}{'─'*4}  {'─'*34} {'─'*5} {'─'*5} {'─'*6} {'─'*6} {'─'*4}{RESET}")
 
-    for i in range(game.max_level):
-        if i < len(game.level_results) and game.level_results[i]:
+        for i in range(start, end):
             r = game.level_results[i]
-            rc = rank_colors.get(r["rank"], "")
+            if r is None:
+                continue
+            rc = RANK_COLORS.get(r["rank"], "")
             if r["skipped"]:
                 print(
-                    f"  {DIM}{r['level']:>3}  {r['path']:<32} {'--':>5} {'--':>5} {'--':>6} {'--':>6}    -{RESET}"
+                    f"  {DIM}{r['level']:>4}  {r['path']:<34} {'--':>5} {'--':>5} {'--':>6} {'--':>6}    -{RESET}"
                 )
             else:
                 print(
-                    f"  {r['level']:>3}  {r['path']:<32} {r['moves']:>5} {r['pushes']:>5} {fmt_time(r['time']):>6} {r['score']:>6} {rc}{r['rank']:>4}{RESET}"
+                    f"  {r['level']:>4}  {r['path']:<34} {r['moves']:>5} {r['pushes']:>5} {fmt_time(r['time']):>6} {r['score']:>6} {rc}{r['rank']:>4}{RESET}"
                 )
-        else:
-            lv = LEVELS[i]
-            print(f"  {DIM}{i+1:>3}  {lv['path']:<32}{'--':>5} {'--':>5} {'--':>6} {'--':>6}    -{RESET}")
 
-    print(f"  {DIM}{'─'*3}  {'─'*32} {'─'*5} {'─'*5} {'─'*6} {'─'*6} {'─'*4}{RESET}")
+        print(f"  {DIM}{'─'*4}  {'─'*34} {'─'*5} {'─'*5} {'─'*6} {'─'*6} {'─'*4}{RESET}")
 
     total_s = game.total_score()
     total_t = game.total_time()
 
-    # overall rank
-    if solved == 0:
-        overall_rank = "-"
-    else:
-        avg = total_s / solved
-        avg_targets = sum(
-            LEVELS[i]["map"].__str__().count(".") + LEVELS[i]["map"].__str__().count("+")
-            for i in range(game.max_level)
-        ) / game.max_level
-        if avg <= 5 * max(avg_targets, 1) and solved == game.max_level:
+    if solved > 0:
+        avg_score = total_s / solved
+        if avg_score <= 10:
             overall_rank = "S"
-        elif avg <= 10 * max(avg_targets, 1):
+        elif avg_score <= 20:
             overall_rank = "A"
-        elif avg <= 20 * max(avg_targets, 1):
+        elif avg_score <= 40:
             overall_rank = "B"
-        elif avg <= 35 * max(avg_targets, 1):
+        elif avg_score <= 70:
             overall_rank = "C"
         else:
             overall_rank = "D"
+    else:
+        overall_rank = "-"
 
-    orc = rank_colors.get(overall_rank, "")
+    orc = RANK_COLORS.get(overall_rank, "")
     print(
-        f"  {BOLD}{'':>3}  {'TOTAL':<32} {'':>5} {'':>5} {fmt_time(total_t):>6} {total_s:>6} {orc}{overall_rank:>4}{RESET}"
+        f"  {BOLD}{'':>4}  {'TOTAL':<34} {'':>5} {'':>5} {fmt_time(total_t):>6} {total_s:>6} {orc}{overall_rank:>4}{RESET}"
     )
     print()
 
-    # save
+    # save score
     scores = load_scores()
     entry = {
         "player": player,
@@ -635,7 +455,6 @@ def render_scorecard(game):
         "solved": solved,
         "skipped": skipped,
         "rank": overall_rank,
-        "levels": [r for r in game.level_results if r],
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
 
@@ -646,7 +465,6 @@ def render_scorecard(game):
 
     # leaderboard
     all_runs = scores["runs"]
-    # sort by: solved desc, then total_score asc
     ranked = sorted(all_runs, key=lambda x: (-x["solved"], x["total_score"]))
 
     print(f"  {BOLD}Leaderboard{RESET} {DIM}(top 10){RESET}")
@@ -654,7 +472,7 @@ def render_scorecard(game):
     print(f"  {DIM}{'─'*3}  {'─'*20} {'─'*6} {'─'*7} {'─'*7} {'─'*4}{RESET}")
 
     for idx, run in enumerate(ranked[:10]):
-        rc = rank_colors.get(run.get("rank", "-"), "")
+        rc = RANK_COLORS.get(run.get("rank", "-"), "")
         marker = " ◀" if run is entry else ""
         print(
             f"  {idx+1:>3}  {run['player']:<20} {run['solved']:>6} {run['total_score']:>7} {fmt_time(run['total_time']):>7} {rc}{run.get('rank', '-'):>4}{RESET}{YELLOW}{marker}{RESET}"
@@ -662,6 +480,35 @@ def render_scorecard(game):
     print()
     print(f"  {DIM}Scores saved to {SCORE_FILE.name}{RESET}")
     print()
+
+
+def render_menu():
+    os.system("clear" if os.name != "nt" else "cls")
+    print(f"{BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}")
+    print(f"{BOLD}  dirclean{RESET} {DIM}v2.0.0 — directory cleanup tool{RESET}")
+    print(f"{BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}")
+    print()
+
+    save = load_game()
+    if save:
+        lvl = save["current_level"] + 1
+        solved = sum(1 for r in save.get("level_results", []) if r and not r.get("skipped"))
+        ts = save.get("timestamp", "?")
+        print(f"  {DIM}Save data found:{RESET} Level {lvl}, {solved} cleaned")
+        print(f"  {DIM}Last played:{RESET} {ts}")
+        print()
+        print(f"    {CYAN}c{RESET} — Continue from Level {lvl}")
+        print(f"    {CYAN}n{RESET} — New game (start from Level 1)")
+        print(f"    {CYAN}d{RESET} — Delete save data")
+        print(f"    {CYAN}q{RESET} — Quit")
+    else:
+        print(f"  {DIM}No save data found.{RESET}")
+        print()
+        print(f"    {CYAN}n{RESET} — New game")
+        print(f"    {CYAN}q{RESET} — Quit")
+
+    print()
+    return save
 
 
 # ── Input ──────────────────────────────────────────────────────
@@ -686,14 +533,38 @@ def getch():
 
 
 def main():
-    game = Sokoban()
-    game.load_level(0)
+    # Menu
+    while True:
+        save = render_menu()
+        key = getch()
+
+        if key in ("q", "\x03"):
+            os.system("clear" if os.name != "nt" else "cls")
+            print(f"{DIM}dirclean: session ended.{RESET}")
+            return
+
+        elif key == "c" and save:
+            game = Sokoban()
+            game.restore_from_save(save)
+            game.load_level(game.level_num)
+            break
+
+        elif key == "n":
+            game = Sokoban()
+            game.load_level(0)
+            break
+
+        elif key == "d" and save:
+            clear_save()
+            continue
+
     render(game)
 
     while True:
         key = getch()
 
-        if key in ("q", "\x03"):  # q or Ctrl+C
+        if key in ("q", "\x03"):
+            save_game(game)
             render_scorecard(game)
             break
 
@@ -716,7 +587,9 @@ def main():
             game.record_skip()
             if game.level_num + 1 < game.max_level:
                 game.load_level(game.level_num + 1)
+                save_game(game)
             else:
+                save_game(game)
                 render_scorecard(game)
                 break
 
@@ -730,7 +603,9 @@ def main():
             getch()
             if game.level_num + 1 < game.max_level:
                 game.load_level(game.level_num + 1)
+                save_game(game)
             else:
+                save_game(game)
                 render_scorecard(game)
                 break
 
